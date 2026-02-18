@@ -6,6 +6,7 @@ import br.com.grupo99.peopleservice.application.exception.BusinessException;
 import br.com.grupo99.peopleservice.application.exception.ResourceNotFoundException;
 import br.com.grupo99.peopleservice.domain.model.Pessoa;
 import br.com.grupo99.peopleservice.domain.repository.PessoaRepository;
+import br.com.grupo99.peopleservice.application.service.EventPublishingService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
