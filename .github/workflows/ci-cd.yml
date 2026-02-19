@@ -147,39 +147,6 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Retrieve Secrets from SSM
-        id: ssm
-        run: |
-          echo "Retrieving parameters from SSM..."
-          ENVIRONMENT=${{ github.event.inputs.environment || 'dev' }}
-
-          # Database credentials
-          DB_ENDPOINT=$(aws ssm get-parameter --name "/microservices/$ENVIRONMENT/people-service-db/endpoint" --query "Parameter.Value" --output text)
-          DB_HOST=${DB_ENDPOINT%:*}
-          DB_PORT=$(aws ssm get-parameter --name "/microservices/$ENVIRONMENT/people-service-db/port" --query "Parameter.Value" --output text)
-          DB_NAME=$(aws ssm get-parameter --name "/microservices/$ENVIRONMENT/people-service-db/name" --query "Parameter.Value" --output text)
-
-          # EKS Cluster Name
-          EKS_CLUSTER_NAME=$(aws ssm get-parameter --name "/microservices/$ENVIRONMENT/eks/cluster_name" --query "Parameter.Value" --output text 2>/dev/null || echo "${{ env.EKS_CLUSTER_NAME }}")
-
-          # Secure credentials
-          DB_USER=$(aws ssm get-parameter --name "/microservices/$ENVIRONMENT/people-service-db/username" --with-decryption --query "Parameter.Value" --output text)
-          DB_PASS=$(aws ssm get-parameter --name "/microservices/$ENVIRONMENT/people-service-db/password" --with-decryption --query "Parameter.Value" --output text)
-
-          # Mask secrets
-          echo "::add-mask::$DB_USER"
-          echo "::add-mask::$DB_PASS"
-
-          # Export to environment
-          echo "DB_HOST=$DB_HOST" >> $GITHUB_ENV
-          echo "DB_PORT=$DB_PORT" >> $GITHUB_ENV
-          echo "DB_NAME=$DB_NAME" >> $GITHUB_ENV
-          echo "DB_USER=$DB_USER" >> $GITHUB_ENV
-          echo "DB_PASS=$DB_PASS" >> $GITHUB_ENV
-          echo "EKS_CLUSTER_NAME=$EKS_CLUSTER_NAME" >> $GITHUB_ENV
-
-          echo "Secrets retrieved successfully."
-
       - name: Configure kubectl
         run: |
           aws eks update-kubeconfig \
@@ -193,11 +160,11 @@ jobs:
       - name: Create/Update Secrets with Database Credentials
         run: |
           kubectl create secret generic people-service-secrets \
-            --from-literal=DB_HOST='${{ env.DB_HOST }}' \
-            --from-literal=DB_PORT='${{ env.DB_PORT }}' \
-            --from-literal=DB_NAME='${{ env.DB_NAME }}' \
-            --from-literal=DB_USERNAME='${{ env.DB_USER }}' \
-            --from-literal=DB_PASSWORD='${{ env.DB_PASS }}' \
+            --from-literal=DB_HOST='${{ secrets.DB_HOST }}' \
+            --from-literal=DB_PORT='${{ secrets.DB_PORT }}' \
+            --from-literal=DB_NAME='${{ secrets.DB_NAME }}' \
+            --from-literal=DB_USERNAME='${{ secrets.DB_USERNAME }}' \
+            --from-literal=DB_PASSWORD='${{ secrets.DB_PASSWORD }}' \
             --from-literal=JWT_SECRET='${{ secrets.JWT_SECRET }}' \
             --from-literal=NEW_RELIC_LICENSE_KEY='${{ secrets.NEW_RELIC_LICENSE_KEY }}' \
             --namespace=${{ env.SERVICE_NAME }} \
@@ -258,9 +225,7 @@ jobs:
 
       - name: Configure kubectl
         run: |
-          ENVIRONMENT=${{ github.event.inputs.environment || 'dev' }}
-          CLUSTER=$(aws ssm get-parameter --name "/microservices/$ENVIRONMENT/eks/cluster_name" --query "Parameter.Value" --output text 2>/dev/null || echo "${{ env.EKS_CLUSTER_NAME }}")
-          aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name $CLUSTER
+          aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name ${{ env.EKS_CLUSTER_NAME }}
 
       - name: Rollback deployment
         run: |
